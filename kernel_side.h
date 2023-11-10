@@ -30,6 +30,7 @@ struct task_data
 	u_int32_t *kernel_pre_v;
 	u_int32_t *kernel_pre_h;
 	struct job *last_job;
+	struct job *current_sequence_jobs[100];
 
 };
 
