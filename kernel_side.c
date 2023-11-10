@@ -58,8 +58,7 @@ SYSCALL_DEFINE1(releasejob, int,  task_id)
     }
 
 	//Initialize job lock
-	mutex_init(tasks[task_id]->job_lock);	
-
+	mutex_init(new_job->job_lock);	
 
 
 	tasks[task_id]->last_job->next_job = new_job;
@@ -119,14 +118,41 @@ SYSCALL_DEFINE5(initializetask, int,  task_id, int, number_of_nodes, int, number
 	tasks[task_id]->last_job->next_job = NULL;
 	tasks[task_id]->last_job->job_id = 0;
 
+	//Assign every sequence the start job
+	for(int i = 0; i < number_of_sequences; i++)
+	{
+		tasks[task_id]->current_sequence_jobs[i] = tasks[task_id]->last_job;
+	}
+
 
 	printk("TASK INITIALIZED SUCCESFULLY \n");
 	return 0;
 }
 
-SYSCALL_DEFINE2(waitjob, int,  task_number, int, sequence_number)
+SYSCALL_DEFINE2(waitjob, int,  task_id, int, sequence_id)
 {
 
+	//prim guard
+	struct semaphore *guard_ptr = tasks[task_id]->prim_guards + (sequence_id - 1);
+	down(guard_ptr);
+
+	//Update job ponter
+	tasks[task_id]->current_sequence_jobs[sequence_id-1] = tasks[task_id]->current_sequence_jobs[sequence_id-1]->next_job;
+
+	//sec guard
+	if(sequence_id != 1)
+	{
+		guard_ptr = tasks[task_id]->current_sequence_jobs[sequence_id-1]->sec_guards + (sequence_id-1);
+		down(guard_ptr);
+	}
+
+
+	return 0;
+}
+
+
+SYSCALL_DEFINE2(tryexecute, int,  task_id, int, sequence_id, int, node_id)
+{
 	
 	return 0;
 }
