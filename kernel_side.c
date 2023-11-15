@@ -1,9 +1,6 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////// NEW SYSTEM CALLS ADDED AS A PART OF RBS PROJECT///////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////
-int value2 = 67;
-struct semaphore my_first_kernel_sem;
-
 struct task_data *tasks[100];
 
 bool rbs_check_precedence_constraints(int task_id, int sequence_id, int node_id)
@@ -123,42 +120,7 @@ void rbs_finish_job(int task_id, int sequence_id, int node_id)
 }
 
 
-SYSCALL_DEFINE2(hellotest, int, num1, int, num2)
-{
-	/*
-		struct job_token token;
-		token.value = 5;
-        printk("HELLO TEST, value = %d, value2 = %d\n", token.value, value2);
-        return 0;
-	*/
-
-	u_int32_t *ptr = tasks[num1]->kernel_pre_v + num2;
-	printk("value  %d\n", *ptr);
-	return 0;
-}
-
-SYSCALL_DEFINE0(waittest)
-{
-	sema_init(&my_first_kernel_sem, 0);
-
-	printk("WAITING ON SEMAPHORE\n");
-
-	down(&my_first_kernel_sem);
-
-	printk("SEMAPHORE DOWN ACTION SUCCESFULL\n");
-
-	return 0;
-}
-
-SYSCALL_DEFINE0(releasetest)
-{
-	up(&my_first_kernel_sem);
-
-	printk("SEMAPHORE UP ACTION SUCCESFULL\n");
-	return 0;
-}
-
-SYSCALL_DEFINE1(releasejob, int,  task_id)
+SYSCALL_DEFINE1(RBSrelease_job, int,  task_id)
 {
 	//Allocate memory and initialize a new job structure
 	struct job *new_job = kmalloc(sizeof(struct job), GFP_KERNEL);
@@ -167,6 +129,7 @@ SYSCALL_DEFINE1(releasejob, int,  task_id)
     new_job->nodes_finished = 0;
 	new_job->sec_guards = kcalloc((tasks[task_id]->number_of_sequences-1), sizeof(struct semaphore), GFP_KERNEL);
 	new_job->previous_job = tasks[task_id]->last_job;
+	new_job->job_lock = kmalloc(sizeof(struct mutex), GFP_KERNEL);
 
 	//Initialize sec guards
     for(int i = 0; i < (tasks[task_id]->number_of_sequences -1); i++)
@@ -175,7 +138,13 @@ SYSCALL_DEFINE1(releasejob, int,  task_id)
     }
 
 	//Initialize job lock
+	if(new_job->job_lock == NULL)
+	{
+		return 99;
+	}
 	mutex_init(new_job->job_lock);	
+
+	printk("JOB RELEASE MUTEX INITIALIZE SUCCESFULLY  %d\n", task_id);
 
 
 	tasks[task_id]->last_job->next_job = new_job;
@@ -185,15 +154,21 @@ SYSCALL_DEFINE1(releasejob, int,  task_id)
     //post primary guards
     for(int i = 0; i < tasks[task_id]->number_of_sequences; i++)
     {
-        up(tasks[task_id]->prim_guards + i);
+		struct semaphore *sem_ptr = tasks[task_id]->prim_guards + i;
+		if(sem_ptr == NULL)
+		{
+		return 99;
+		}
+
+        up(sem_ptr);
     }
 
 
-	//printk("JOB RELEASED SUCCESFULLY  %d\n", task_id);
+	printk("JOB RELEASED SUCCESFULLY  %d\n", task_id);
 	return 0;
 }
 
-SYSCALL_DEFINE6(initializetask, int,  task_id, int, number_of_nodes, int, number_of_sequences, u_int32_t __user *, pre_v, u_int32_t __user *, pre_h, u_int32_t __user *, sequence_heads)
+SYSCALL_DEFINE6(RBSinitialize_task, int,  task_id, int, number_of_nodes, int, number_of_sequences, u_int32_t __user *, pre_v, u_int32_t __user *, pre_h, u_int32_t __user *, sequence_heads)
 {
 
 	//task id must be 1 or higher
@@ -227,6 +202,7 @@ SYSCALL_DEFINE6(initializetask, int,  task_id, int, number_of_nodes, int, number
 	//Allocate memory for precdence bitmaps
 	tasks[task_id]->kernel_pre_v = kcalloc(number_of_nodes, sizeof(u_int32_t), GFP_KERNEL);
 	tasks[task_id]->kernel_pre_h = kcalloc(number_of_nodes, sizeof(u_int32_t), GFP_KERNEL);
+	tasks[task_id]->kernel_sequence_heads = kcalloc(number_of_sequences, sizeof(u_int32_t), GFP_KERNEL);
 
 	printk("TASK PRE ALLOCATION SUCCESFULL \n");
 
@@ -254,6 +230,7 @@ SYSCALL_DEFINE6(initializetask, int,  task_id, int, number_of_nodes, int, number
 	
 	//Allocate memory for the start of the linked list for jobs and initialize it
 	tasks[task_id]->last_job = kmalloc(sizeof(struct job), GFP_KERNEL);
+	tasks[task_id]->last_job->job_lock = NULL;
 	tasks[task_id]->last_job->previous_job = NULL;
 	tasks[task_id]->last_job->next_job = NULL;
 	tasks[task_id]->last_job->sec_guards = NULL;
@@ -272,7 +249,7 @@ SYSCALL_DEFINE6(initializetask, int,  task_id, int, number_of_nodes, int, number
 	return 0;
 }
 
-SYSCALL_DEFINE2(waitjob, int,  task_id, int, sequence_id)
+SYSCALL_DEFINE2(RBSwait_job, int,  task_id, int, sequence_id)
 {
 
 	//prim guard
@@ -283,18 +260,28 @@ SYSCALL_DEFINE2(waitjob, int,  task_id, int, sequence_id)
 	tasks[task_id]->current_sequence_jobs[sequence_id-1] = tasks[task_id]->current_sequence_jobs[sequence_id-1]->next_job;
 
 	//sec guard
-	if(sequence_id != 1)
+	if(sequence_id > 1)
 	{
-		guard_ptr = tasks[task_id]->current_sequence_jobs[sequence_id-1]->sec_guards + (sequence_id-1);
-		down(guard_ptr);
+		struct semaphore *sec_guard_ptr = tasks[task_id]->current_sequence_jobs[sequence_id-1]->sec_guards + (sequence_id-2);
+
+		if(sec_guard_ptr == NULL)
+		{
+			return 99;
+		}
+
+		down(sec_guard_ptr);
+	}
+	else
+	{
+		;
 	}
 
-
+	printk("WAIT WAS SUCCESFUL\n");
 	return 0;
 }
 
 
-SYSCALL_DEFINE3(tryexecute, int,  task_id, int, sequence_id, int, node_id)
+SYSCALL_DEFINE3(RBStry_execute, int,  task_id, int, sequence_id, int, node_id)
 {
 	struct mutex *lock_ptr = tasks[task_id]->current_sequence_jobs[sequence_id-1]->job_lock;
 
@@ -322,7 +309,7 @@ SYSCALL_DEFINE3(tryexecute, int,  task_id, int, sequence_id, int, node_id)
 }
 
 
-SYSCALL_DEFINE3(nodeexecuted, int,  task_id, int, sequence_id, int, node_id)
+SYSCALL_DEFINE3(RBSnode_executed, int,  task_id, int, sequence_id, int, node_id)
 {
 	struct mutex *lock_ptr = tasks[task_id]->current_sequence_jobs[sequence_id-1]->job_lock;
 	mutex_lock(lock_ptr);
@@ -337,7 +324,7 @@ SYSCALL_DEFINE3(nodeexecuted, int,  task_id, int, sequence_id, int, node_id)
 }
 
 
-SYSCALL_DEFINE0(initializerbs)
+SYSCALL_DEFINE0(RBSinitialize_rbs)
 {
 	for(int i = 0; i < 100; i++)
 	{
