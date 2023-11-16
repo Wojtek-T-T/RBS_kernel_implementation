@@ -83,10 +83,10 @@ void rbs_signal_sequence(int task_id, int sequence_id, int node_id)
             //if 0 than the node is not a head of any sequence
             if(sequence != 0)
             {
-                if(rbs_check_precedence_constraints(task_id, sequence_id, node_id))
+                if(rbs_check_precedence_constraints(task_id, sequence_id, i+1))
                 {
                     //SIGNAL
-					struct semaphore *guard_to_signal = tasks[task_id]->current_sequence_jobs[sequence_id - 1]->sec_guards + sequence_id -2;
+					struct semaphore *guard_to_signal = tasks[task_id]->current_sequence_jobs[sequence_id - 1]->sec_guards + sequence -2;
                     up(guard_to_signal);
                 }
             }
@@ -253,7 +253,7 @@ SYSCALL_DEFINE2(RBSwait_job, int,  task_id, int, sequence_id)
 {
 
 	//prim guard
-	printk("WAITING ON PRIM GUARD\n");
+	printk("WAITING ON PRIM GUARD %d\n", sequence_id);
 	struct semaphore *guard_ptr = tasks[task_id]->prim_guards + (sequence_id - 1);
 	down(guard_ptr);
 
@@ -264,7 +264,7 @@ SYSCALL_DEFINE2(RBSwait_job, int,  task_id, int, sequence_id)
 	//sec guard
 	if(sequence_id > 1)
 	{
-		printk("WAITING ON SEC GUARD\n");
+		printk("WAITING ON SEC GUARD %d\n", sequence_id);
 		struct semaphore *sec_guard_ptr = tasks[task_id]->current_sequence_jobs[sequence_id-1]->sec_guards + (sequence_id-2);
 
 		if(sec_guard_ptr == NULL)
@@ -279,7 +279,7 @@ SYSCALL_DEFINE2(RBSwait_job, int,  task_id, int, sequence_id)
 		;
 	}
 
-	printk("WAIT WAS SUCCESFUL\n");
+	printk("WAIT WAS SUCCESFUL %d\n", sequence_id);
 	return 0;
 }
 
@@ -294,6 +294,7 @@ SYSCALL_DEFINE3(RBStry_execute, int,  task_id, int, sequence_id, int, node_id)
     if((rbs_check_precedence_constraints(task_id, sequence_id, node_id)) == false)
     {
         mutex_unlock(lock_ptr);
+		printk("EXECUTION WAS NOT SUCCESFUL (pre cons) seq: %d, node %d\n", sequence_id, node_id);
         return 1;
     }
     
@@ -301,12 +302,15 @@ SYSCALL_DEFINE3(RBStry_execute, int,  task_id, int, sequence_id, int, node_id)
     if((rbs_check_if_node_in_execution(task_id, sequence_id, node_id)) == true)
     {
         mutex_unlock(lock_ptr);
+		printk("EXECUTION WAS NOT SUCCESFUL (node in ex) seq: %d, node %d\n", sequence_id, node_id);
         return 2;
     } 
 
 	rbs_mark_node_in_execution(task_id, sequence_id, node_id);
 
 	mutex_unlock(lock_ptr);
+
+	printk("EXECUTION WAS SUCCESFUL seq: %d, node %d\n", sequence_id, node_id);
 
 	return 0;
 }
@@ -324,6 +328,8 @@ SYSCALL_DEFINE3(RBSnode_executed, int,  task_id, int, sequence_id, int, node_id)
 	rbs_signal_sequence(task_id, sequence_id, node_id);
 
 	//rbs_finish_job(task_id, sequence_id, node_id);
+
+	printk("EXECUTION MARKING  WAS SUCCESFUL seq: %d, node %d\n", sequence_id, node_id);
 
 	return 0;
 }
