@@ -2,10 +2,6 @@
 //////////////// NEW SYSTEM CALLS ADDED AS A PART OF RBS PROJECT///////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
-struct job_token
-{
-	int value;
-};
 
 struct job
 {
@@ -29,8 +25,16 @@ struct task_data
 	struct semaphore *prim_guards;
 	u_int32_t *kernel_pre_v;
 	u_int32_t *kernel_pre_h;
+	u_int32_t *kernel_sequence_heads;
 	struct job *last_job;
-	struct job *current_sequence_jobs[100];
+	struct sequence_data *sequences_data;
+
+};
+
+struct sequence_data
+{
+	int sequence_id;
+	struct job *current_sequence_job;
 
 };
 
