@@ -5,6 +5,7 @@ struct task_data *tasks[100];
 
 bool rbs_check_precedence_constraints(int task_id, int sequence_id, int node_id)
 {
+	struct job *current_sequence_job_ptr = tasks[task_id]->current_sequence_jobs + (sequence_id - 1);
     //source nodes doesn't have any precedence constraints
     if(node_id == 1)
     {
@@ -12,7 +13,7 @@ bool rbs_check_precedence_constraints(int task_id, int sequence_id, int node_id)
     }
     
     u_int32_t *ptr = tasks[task_id]->kernel_pre_h + (node_id -1);
-    if(*ptr == (*ptr & tasks[task_id]->current_sequence_jobs[sequence_id-1]->nodes_finished))
+    if(*ptr == (*ptr & current_sequence_job_ptr->nodes_finished))
     {
         return true;
     }
@@ -27,7 +28,8 @@ bool rbs_check_if_node_in_execution(int task_id, int sequence_id, int node_id)
 {
     u_int32_t mask = 1;
     mask = mask << (node_id - 1);
-    u_int32_t local_execution_state = tasks[task_id]->current_sequence_jobs[sequence_id-1]->nodes_in_execution;
+	struct job *current_sequence_job_ptr = tasks[task_id]->current_sequence_jobs + (sequence_id - 1);
+    u_int32_t local_execution_state = current_sequence_job_ptr->nodes_in_execution;
     
     local_execution_state = local_execution_state & mask;
     
@@ -46,8 +48,8 @@ void rbs_mark_node_in_execution(int task_id, int sequence_id, int node_id)
 {
     u_int32_t mask = 1;
     mask = mask << (node_id - 1);
-
-	tasks[task_id]->current_sequence_jobs[sequence_id-1]->nodes_in_execution = tasks[task_id]->current_sequence_jobs[sequence_id-1]->nodes_in_execution | mask;
+	struct job *current_sequence_job_ptr = tasks[task_id]->current_sequence_jobs + (sequence_id - 1);
+	current_sequence_job_ptr->nodes_in_execution = current_sequence_job_ptr->nodes_in_execution | mask;
 }
 
 
@@ -56,7 +58,8 @@ void rbs_mark_node_executed(int task_id, int sequence_id, int node_id)
     //Mark task as finished by setting the bit in the job state variable
     u_int32_t mask = 1;
     mask = mask << (node_id - 1);
-    tasks[task_id]->current_sequence_jobs[sequence_id-1]->nodes_finished = tasks[task_id]->current_sequence_jobs[sequence_id-1]->nodes_finished | mask;
+	struct job *current_sequence_job_ptr = tasks[task_id]->current_sequence_jobs + (sequence_id - 1);
+    current_sequence_job_ptr->nodes_finished = current_sequence_job_ptr->nodes_finished | mask;
 	return;
 }
 
@@ -86,7 +89,8 @@ void rbs_signal_sequence(int task_id, int sequence_id, int node_id)
                 if(rbs_check_precedence_constraints(task_id, sequence_id, i+1))
                 {
                     //SIGNAL
-					struct semaphore *guard_to_signal = tasks[task_id]->current_sequence_jobs[sequence_id - 1]->sec_guards + sequence -2;
+					struct job *current_sequence_job_ptr = tasks[task_id]->current_sequence_jobs + (sequence_id - 1);
+					struct semaphore *current_sequence_job_ptr->sec_guards + sequence -2;
                     up(guard_to_signal);
                 }
             }
@@ -100,10 +104,10 @@ void rbs_signal_sequence(int task_id, int sequence_id, int node_id)
 void rbs_finish_job(int task_id, int sequence_id, int node_id)
 {
     //If object is empty (first token is always empty) do nothing
-    if(tasks[task_id]->current_sequence_jobs[sequence_id - 1]->sec_guards == NULL)
-    {
-        return;
-    }
+   // if(tasks[task_id]->current_sequence_jobs[sequence_id - 1]->sec_guards == NULL)
+   // {
+      //  return;
+   // }
 
     //Destroy mutex
    // pthread_mutex_destroy(&sequenceDATA->current_job->previous_job->job_lock); //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -115,8 +119,9 @@ void rbs_finish_job(int task_id, int sequence_id, int node_id)
     //}
     
     //Free memory
-    kfree(tasks[task_id]->current_sequence_jobs[sequence_id - 1]->previous_job->sec_guards);
-    kfree(tasks[task_id]->current_sequence_jobs[sequence_id - 1]->previous_job);	
+   // kfree(tasks[task_id]->current_sequence_jobs[sequence_id - 1]->previous_job->sec_guards); ///!!!!!
+    //kfree(tasks[task_id]->current_sequence_jobs[sequence_id - 1]->previous_job);	
+	return;
 }
 
 
@@ -153,7 +158,7 @@ SYSCALL_DEFINE1(RBSrelease_job, int,  task_id)
 
 
 	tasks[task_id]->last_job->next_job = new_job;
-	tasks[task_id]->last_job = new_job;
+	
 
 
     //post primary guards
@@ -167,6 +172,8 @@ SYSCALL_DEFINE1(RBSrelease_job, int,  task_id)
 
         up(sem_ptr);
     }
+
+	tasks[task_id]->last_job = new_job;
 
 
 	printk("JOB RELEASED SUCCESFULLY  %d\n", task_id);
@@ -255,17 +262,27 @@ SYSCALL_DEFINE2(RBSwait_job, int,  task_id, int, sequence_id)
 	//prim guard
 	printk("WAITING ON PRIM GUARD %d\n", sequence_id);
 	struct semaphore *guard_ptr = tasks[task_id]->prim_guards + (sequence_id - 1);
+	if(guard_ptr == NULL)
+	{
+		return 99;
+	}
 	down(guard_ptr);
 
 	//Update job ponter
-	struct job *new_job_ptr = tasks[task_id]->current_sequence_jobs[sequence_id-1]->next_job;
-	tasks[task_id]->current_sequence_jobs[sequence_id-1] = new_job_ptr;
+	struct job *current_sequence_job_ptr = tasks[task_id]->current_sequence_jobs + (sequence_id - 1);
+	struct job *new_job_ptr = current_sequence_job_ptr->next_job;
+
+	if(new_job_ptr == NULL)
+	{
+		return 99;
+	}
+	current_sequence_job_ptr = new_job_ptr;
 
 	//sec guard
 	if(sequence_id > 1)
 	{
 		printk("WAITING ON SEC GUARD %d\n", sequence_id);
-		struct semaphore *sec_guard_ptr = tasks[task_id]->current_sequence_jobs[sequence_id-1]->sec_guards + (sequence_id-2);
+		struct semaphore *sec_guard_ptr = current_sequence_job_ptr->sec_guards + (sequence_id-2);
 
 		if(sec_guard_ptr == NULL)
 		{
@@ -286,7 +303,8 @@ SYSCALL_DEFINE2(RBSwait_job, int,  task_id, int, sequence_id)
 
 SYSCALL_DEFINE3(RBStry_execute, int,  task_id, int, sequence_id, int, node_id)
 {
-	struct mutex *lock_ptr = tasks[task_id]->current_sequence_jobs[sequence_id-1]->job_lock;
+	struct job *current_sequence_job_ptr = tasks[task_id]->current_sequence_jobs + (sequence_id - 1);
+	struct mutex *lock_ptr = current_sequence_job_ptr->job_lock;
 
 	mutex_lock(lock_ptr);
 
@@ -318,7 +336,8 @@ SYSCALL_DEFINE3(RBStry_execute, int,  task_id, int, sequence_id, int, node_id)
 
 SYSCALL_DEFINE3(RBSnode_executed, int,  task_id, int, sequence_id, int, node_id)
 {
-	struct mutex *lock_ptr = tasks[task_id]->current_sequence_jobs[sequence_id-1]->job_lock;
+	struct job *current_sequence_job_ptr = tasks[task_id]->current_sequence_jobs + (sequence_id - 1);
+	struct mutex *lock_ptr = current_sequence_job_ptr->job_lock;
 	mutex_lock(lock_ptr);
 
 	rbs_mark_node_executed(task_id, sequence_id, node_id);
