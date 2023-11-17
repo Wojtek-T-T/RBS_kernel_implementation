@@ -180,7 +180,27 @@ SYSCALL_DEFINE1(RBSrelease_job, int,  task_id)
 	return 0;
 }
 
-SYSCALL_DEFINE6(RBSinitialize_task, int,  task_id, int, number_of_nodes, int, number_of_sequences, u_int32_t __user *, pre_v, u_int32_t __user *, pre_h, u_int32_t __user *, sequence_heads)
+SYSCALL_DEFINE4(RBScopy_data_from_user, int,  task_id, u_int32_t __user *, pre_v, u_int32_t __user *, pre_h, u_int32_t __user *, sequence_heads)
+{
+	if(tasks[task_id] == NULL)
+	{
+		return 99;
+	}
+	int ret = 0;
+	int nr_bytes = tasks[task_id]->number_of_nodes * 4;
+
+	//Copy data from user space
+	ret = copy_from_user(tasks[task_id]->kernel_pre_v, pre_v, nr_bytes);
+	ret = copy_from_user(tasks[task_id]->kernel_pre_v, pre_h, nr_bytes);
+	ret = copy_from_user(tasks[task_id]->kernel_sequence_heads, sequence_heads, nr_bytes);
+
+	printk("TASK CPY DATA FROM USER SPACE SUCCESFULL \n");
+
+	return 0;
+
+}
+
+SYSCALL_DEFINE3(RBSinitialize_task, int,  task_id, int, number_of_nodes, int, number_of_sequences)
 {
 
 	//task id must be 1 or higher
@@ -196,7 +216,6 @@ SYSCALL_DEFINE6(RBSinitialize_task, int,  task_id, int, number_of_nodes, int, nu
 
 	printk("PTR CLEAR SUCCESFULL \n");
 
-	int nr_bytes = number_of_nodes * 4;
 
 	//Allocate memory for task data
 	tasks[task_id] = kmalloc(sizeof(struct task_data), GFP_KERNEL);
@@ -217,13 +236,6 @@ SYSCALL_DEFINE6(RBSinitialize_task, int,  task_id, int, number_of_nodes, int, nu
 	tasks[task_id]->prim_guards = kcalloc(number_of_sequences, sizeof(struct semaphore), GFP_KERNEL);
 
 	printk("TASK GUARD ALLOCATION SUCCESFULL \n");
-
-	//Copy data from user space
-	ret = copy_from_user(tasks[task_id]->kernel_pre_v, pre_v, nr_bytes);
-	ret = copy_from_user(tasks[task_id]->kernel_pre_v, pre_h, nr_bytes);
-	ret = copy_from_user(tasks[task_id]->kernel_sequence_heads, sequence_heads, number_of_sequences * 4);
-
-	printk("TASK CPY DATA FROM USER SPACE SUCCESFULL \n");
 
 
 	//Initialize semaphores of the primary guards
@@ -306,6 +318,15 @@ SYSCALL_DEFINE3(RBStry_execute, int,  task_id, int, sequence_id, int, node_id)
 	struct job *current_sequence_job_ptr = tasks[task_id]->current_sequence_jobs[sequence_id - 1];
 	struct mutex *lock_ptr = current_sequence_job_ptr->job_lock;
 
+	if(current_sequence_job_ptr == NULL)
+	{
+		return 99;
+	}
+	if(lock_ptr == NULL)
+	{
+		return 99;
+	}
+
 	mutex_lock(lock_ptr);
 
     //Check if the next node can be executed if not unlock job_token and return
@@ -338,6 +359,16 @@ SYSCALL_DEFINE3(RBSnode_executed, int,  task_id, int, sequence_id, int, node_id)
 {
 	struct job *current_sequence_job_ptr = tasks[task_id]->current_sequence_jobs[sequence_id - 1];
 	struct mutex *lock_ptr = current_sequence_job_ptr->job_lock;
+
+	if(current_sequence_job_ptr == NULL)
+	{
+		return 99;
+	}
+	if(lock_ptr == NULL)
+	{
+		return 99;
+	}
+
 	mutex_lock(lock_ptr);
 
 	rbs_mark_node_executed(task_id, sequence_id, node_id);
