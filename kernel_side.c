@@ -149,23 +149,23 @@ void rbs_signal_sequence(int task_id, int sequence_id, int node_id)
 void rbs_finish_job(int task_id, int sequence_id, int node_id)
 {
     //If object is empty (first token is always empty) do nothing
-   // if(tasks[task_id]->current_sequence_jobs[sequence_id - 1]->sec_guards == NULL)
-   // {
-      //  return;
-   // }
+	struct job *old_job = tasks[task_id]->current_sequence_jobs[sequence_id - 1]
+    if(old_job->previous_job == NULL)
+    {
+        return;
+    }
 
     //Destroy mutex
-   // pthread_mutex_destroy(&sequenceDATA->current_job->previous_job->job_lock); //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    kfree(old_job->previous_job->job_lock);
 
-    //Destroy secondary semaphores
-    //for(int i = 0; i < tasks[task_id]->number_of_sequences; i++)
-    //{
-        //sem_destroy((sequenceDATA->current_job->previous_job->secondary_sequences_guards + i));
-    //}
-    
-    //Free memory
-   // kfree(tasks[task_id]->current_sequence_jobs[sequence_id - 1]->previous_job->sec_guards); ///!!!!!
-    //kfree(tasks[task_id]->current_sequence_jobs[sequence_id - 1]->previous_job);	
+
+	//Destroy semaphores
+	kfree(old_job->previous_job->sec_guards);
+
+	//Destroy job
+	kfree(old_job->previous_job);
+
+    	
 	return;
 }
 
