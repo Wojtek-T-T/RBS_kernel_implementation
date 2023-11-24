@@ -81,6 +81,8 @@ struct sequence_data
 
 	//pointer to primary sequence guarding semaphores
 	sem_t *semaphore;
+
+	int current_job_id;
 	
 };
 
@@ -256,7 +258,7 @@ int TryExecuteNode(struct sequence_data *sequenceDATA, int node);
 void TerminateSequence(struct sequence_data *sequenceDATA, int node);
 
 
-void print_log_data_json(struct task_data *taskDATA_start, int num_of_tasks);
+void print_log_data_json(struct task_data **taskDATA_start, int num_of_tasks);
 
 
 #endif
