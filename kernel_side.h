@@ -38,7 +38,12 @@ struct sequence_data
 
 };
 
-
+bool rbs_check_precedence_constraints(int task_id, int sequence_id, int node_id);
+bool rbs_check_if_node_in_execution(int task_id, int sequence_id, int node_id);
+void rbs_mark_node_in_execution(int task_id, int sequence_id, int node_id);
+void rbs_mark_node_executed(int task_id, int sequence_id, int node_id);
+void rbs_signal_sequence(int task_id, int sequence_id, int node_id);
+void rbs_finish_job(int task_id, int sequence_id, int node_id);
 ////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////// END OF AREA WITH NEW RBS SYSTEM CALLS /////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////
