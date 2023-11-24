@@ -13,6 +13,7 @@ void InitializeSequence(struct task_data *taskDATA, int sequenceID, pthread_t *t
 	sequenceDATA->task = taskDATA;
 	sequenceDATA->sequence_id = sequenceID;
 	sequenceDATA->current_job = taskDATA->last_added_job;
+    sequenceDATA->current_job_id = 0;
 	
 	
 	//Initialize thread
@@ -23,7 +24,7 @@ void InitializeSequence(struct task_data *taskDATA, int sequenceID, pthread_t *t
 void initialize_rbs()
 {
     clock_gettime(CLOCK_REALTIME, &time_reference);
-    result = syscall(INIT);
+    int result = syscall(INIT);
 
 }
 
@@ -37,9 +38,6 @@ int InitializeTask(struct task_data *taskDATA)
         return 1;
     }
 
-    //Allocate memory for previous job, this structure is needed only for purpose of correct functioning of the double linked list
-    taskDATA->last_added_job = malloc(sizeof(struct job_token));
-    taskDATA->last_added_job->secondary_sequences_guards = NULL;
 
     //SET SCHEDULER TO SCHED_FIFO and set priority of the task
     pthread_attr_init(&taskDATA->attr);
@@ -65,8 +63,10 @@ int InitializeTask(struct task_data *taskDATA)
         }
 	#endif
 
-    result = syscall(INIT_TASK, taskDATA->task_id, taskDATA->number_of__nodes, taskDATA->number_of_sequences);
+    result = syscall(INIT_TASK, taskDATA->task_id, taskDATA->number_of_nodes, taskDATA->number_of_sequences);
     result = syscall(TRANSFER, taskDATA->task_id, taskDATA->pre_cons_v, taskDATA->pre_cons_h, taskDATA->sequence_heads);
+
+    printf("task %d initialized\n", taskDATA->task_id);
 
     return 0;
 }
@@ -127,6 +127,8 @@ void WaitNextJob(struct sequence_data *sequenceDATA)
 	//Wait till a new job is released
     int ret = syscall(WAIT, sequenceDATA->task->task_id, sequenceDATA->sequence_id);
 
+    sequenceDATA->current_job_id = sequenceDATA->current_job_id + 1;
+
 }
 
 void ReleaseNewJob(struct task_data *taskDATA)
@@ -150,21 +152,28 @@ int TryExecuteNode(struct sequence_data *sequenceDATA, int node)
 {
     
     int ret = syscall(EXECUTE, sequenceDATA->task->task_id, sequenceDATA->sequence_id, node);
+
+    if(ret != 0)
+    {
+        return ret;
+    }
     
     //Log event
     #ifdef LOG_DATA
-        struct log_event_data *log_ptr = log_event_start(sequenceDATA->task->task_id, sequenceDATA->sequence_id, node, sequenceDATA->current_job->job_id, NODE_EXECUTION);
+        struct log_event_data *log_ptr = log_event_start(sequenceDATA->task->task_id, sequenceDATA->sequence_id, node, sequenceDATA->current_job_id, NODE_EXECUTION);
     #endif
     
     //Execute Node function
     sequenceDATA->task->func[(node-1)]();
 
-    ret = syscall(EXECUTED, sequenceDATA->task->task_id, sequenceDATA->sequence_id, node);
 
     //Log event
     #ifdef LOG_DATA
         log_event_end(log_ptr);
     #endif
+
+    ret = syscall(EXECUTED, sequenceDATA->task->task_id, sequenceDATA->sequence_id, node);
+
     
     
     return 0;
@@ -179,7 +188,7 @@ void TerminateSequence(struct sequence_data *sequenceDATA, int node)
 }
 
 
-void print_log_data_json(struct task_data *taskDATA_start, int num_of_tasks)
+void print_log_data_json(struct task_data **taskDATA_start, int num_of_tasks)
 {
     FILE *fp;
     fp = fopen("log.json", "w");
@@ -187,7 +196,7 @@ void print_log_data_json(struct task_data *taskDATA_start, int num_of_tasks)
 
     for(int task = 0; task < num_of_tasks; task ++)
     {
-        struct task_data *taskDATA = taskDATA_start + task;
+        struct task_data *taskDATA = *(taskDATA_start + task);
 
         for(int i = 0 ; i <= taskDATA->number_of_sequences; i ++)
         {
