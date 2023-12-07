@@ -5,6 +5,10 @@ struct task_data *tasks[100];
 
 bool rbs_check_precedence_constraints(int task_id, int sequence_id, int node_id)
 {
+	struct sequence_data *seq_data = NULL;
+	struct job *current_sequence_job_ptr = NULL;
+	 u_int32_t *ptr = NULL;
+	
 	//source nodes doesn't have any precedence constraints
     if(node_id == 1)
     {
@@ -12,8 +16,8 @@ bool rbs_check_precedence_constraints(int task_id, int sequence_id, int node_id)
     }
 
 
-	struct sequence_data *seq_data = tasks[task_id]->sequences_data + (sequence_id - 1);
-	struct job *current_sequence_job_ptr = seq_data->current_sequence_job;
+	seq_data = tasks[task_id]->sequences_data + (sequence_id - 1);
+	current_sequence_job_ptr = seq_data->current_sequence_job;
 
 	if(current_sequence_job_ptr == NULL)
 	{
@@ -21,15 +25,15 @@ bool rbs_check_precedence_constraints(int task_id, int sequence_id, int node_id)
 	}
 
     
-    u_int32_t *ptr = tasks[task_id]->kernel_pre_h + (node_id -1);
+    ptr = tasks[task_id]->kernel_pre_h + (node_id -1);
     if(*ptr == (*ptr & current_sequence_job_ptr->nodes_finished))
     {
-		//printk("CURRENT EXECUTION STATE IS %d and PRE is %d, decision is true\n", current_sequence_job_ptr->nodes_finished, *ptr);
+		printk("CURRENT EXECUTION STATE IS %d and PRE is %d, decision is true\n", current_sequence_job_ptr->nodes_finished, *ptr);
         return true;
     }
     else
     {
-		//printk("CURRENT EXECUTION STATE IS %d and PRE is %d, decision is false\n", current_sequence_job_ptr->nodes_finished, *ptr);
+		printk("CURRENT EXECUTION STATE IS %d and PRE is %d, decision is false\n", current_sequence_job_ptr->nodes_finished, *ptr);
         return false;
     } 
 
@@ -38,10 +42,11 @@ bool rbs_check_precedence_constraints(int task_id, int sequence_id, int node_id)
 bool rbs_check_if_node_in_execution(int task_id, int sequence_id, int node_id)
 {
     u_int32_t mask = 1;
-    mask = mask << (node_id - 1);
 	struct sequence_data *seq_data = tasks[task_id]->sequences_data + (sequence_id - 1);
 	struct job *current_sequence_job_ptr = seq_data->current_sequence_job;
     u_int32_t local_execution_state = current_sequence_job_ptr->nodes_in_execution;
+    
+     mask = mask << (node_id - 1);
 
 	if(current_sequence_job_ptr == NULL)
 	{
@@ -64,9 +69,11 @@ bool rbs_check_if_node_in_execution(int task_id, int sequence_id, int node_id)
 void rbs_mark_node_in_execution(int task_id, int sequence_id, int node_id)
 {
     u_int32_t mask = 1;
-    mask = mask << (node_id - 1);
 	struct sequence_data *seq_data = tasks[task_id]->sequences_data + (sequence_id - 1);
 	struct job *current_sequence_job_ptr = seq_data->current_sequence_job;
+	
+	
+	mask = mask << (node_id - 1);
 
 	if(current_sequence_job_ptr == NULL)
 	{
@@ -76,14 +83,15 @@ void rbs_mark_node_in_execution(int task_id, int sequence_id, int node_id)
 	current_sequence_job_ptr->nodes_in_execution = current_sequence_job_ptr->nodes_in_execution | mask;
 }
 
-
 void rbs_mark_node_executed(int task_id, int sequence_id, int node_id)
 {
+	struct sequence_data *seq_data = NULL;
+	struct job *current_sequence_job_ptr = NULL;
     //Mark task as finished by setting the bit in the job state variable
     u_int32_t mask = 1;
     mask = mask << (node_id - 1);
-	struct sequence_data *seq_data = tasks[task_id]->sequences_data + (sequence_id - 1);
-	struct job *current_sequence_job_ptr = seq_data->current_sequence_job;
+	seq_data = tasks[task_id]->sequences_data + (sequence_id - 1);
+	current_sequence_job_ptr = seq_data->current_sequence_job;
 
 
 	if(current_sequence_job_ptr == NULL)
@@ -98,6 +106,12 @@ void rbs_mark_node_executed(int task_id, int sequence_id, int node_id)
 
 void rbs_signal_sequence(int task_id, int sequence_id, int node_id)
 {
+	struct sequence_data *seq_data = NULL;
+	struct job *current_sequence_job_ptr = NULL;
+	struct semaphore *guard_to_signal = NULL;
+	u_int32_t mask = 0;
+	 int sequence = 0;
+					
     //Nodes that have incoming precedence constraints from the finished node
     u_int32_t pre_cons = *(tasks[task_id]->kernel_pre_v + node_id - 1);
 
@@ -109,12 +123,12 @@ void rbs_signal_sequence(int task_id, int sequence_id, int node_id)
 
     for(int i = 0; i < tasks[task_id]->number_of_nodes; i ++)
     {
-        u_int32_t mask = 1 << i;
+        mask = 1 << i;
 
         if((mask & pre_cons) != 0)
         {
             //number of sequence of which the node is head of
-            int sequence = *(tasks[task_id]->kernel_sequence_heads + i);
+            sequence = *(tasks[task_id]->kernel_sequence_heads + i);
 
             //if 0 than the node is not a head of any sequence
             if(sequence > 1)
@@ -122,8 +136,8 @@ void rbs_signal_sequence(int task_id, int sequence_id, int node_id)
                 if(rbs_check_precedence_constraints(task_id, sequence_id, i+1))
                 {
                     //SIGNAL
-					struct sequence_data *seq_data = tasks[task_id]->sequences_data + (sequence_id - 1);
-					struct job *current_sequence_job_ptr = seq_data->current_sequence_job;
+					seq_data = tasks[task_id]->sequences_data + (sequence_id - 1);
+					current_sequence_job_ptr = seq_data->current_sequence_job;
 
 					if(current_sequence_job_ptr == NULL)
 					{
@@ -133,14 +147,14 @@ void rbs_signal_sequence(int task_id, int sequence_id, int node_id)
 					
 
 
-					struct semaphore *guard_to_signal = current_sequence_job_ptr->sec_guards + sequence -2;
+					guard_to_signal = current_sequence_job_ptr->sec_guards + sequence -2;
 
-					/*
+					
 					if(guard_to_signal == NULL)
 					{
 						printk("SIG ERROR SEM PTR NULL");
 					}
-					*/
+					
                     up(guard_to_signal);
                 }
             }
@@ -175,11 +189,118 @@ void rbs_finish_job(int task_id, int sequence_id, int node_id)
 	return;
 }
 
+SYSCALL_DEFINE0(RBSinitialize_rbs)
+{
+	for(int i = 0; i < 100; i++)
+	{
+		tasks[i] = NULL;
+	}
+
+	return 0;
+}
+
+SYSCALL_DEFINE3(RBSinitialize_task, int,  task_id, int, number_of_nodes, int, number_of_sequences)
+{
+	struct semaphore *sem_ptr = NULL;
+	struct sequence_data *seq_data_ptr = NULL;
+
+	//task id must be 1 or higher
+	if(task_id < 1)
+	{
+		return 25;
+	}
+
+	printk("TASK CHECK SUCCESFULL \n");
+
+
+
+	//Allocate memory for task data
+	tasks[task_id] = kmalloc(sizeof(struct task_data), GFP_KERNEL);
+
+	tasks[task_id]->number_of_nodes = number_of_nodes;
+	tasks[task_id]->number_of_sequences = number_of_sequences;
+
+	printk("TASK ALLOCATION SUCCESFULL \n");
+
+	//Allocate memory for precdence bitmaps
+	tasks[task_id]->kernel_pre_v = kcalloc(number_of_nodes, sizeof(u_int32_t), GFP_KERNEL);
+	tasks[task_id]->kernel_pre_h = kcalloc(number_of_nodes, sizeof(u_int32_t), GFP_KERNEL);
+	tasks[task_id]->kernel_sequence_heads = kcalloc(number_of_nodes, sizeof(u_int32_t), GFP_KERNEL);
+
+	printk("TASK PRE ALLOCATION SUCCESFULL \n");
+
+	//Allocate space for primary guards
+	tasks[task_id]->prim_guards = kcalloc(number_of_sequences, sizeof(struct semaphore), GFP_KERNEL);
+
+	printk("TASK GUARD ALLOCATION SUCCESFULL \n");
+
+
+	//Initialize semaphores of the primary guards
+	for(int i = 0; i < number_of_sequences; i++)
+	{
+		sem_ptr = tasks[task_id]->prim_guards + i;
+		sema_init(sem_ptr, 0);
+	}
+
+	printk("TASK GUARD INIT SUCCESFULL \n");
+	
+	//Allocate memory for the start of the linked list for jobs and initialize it
+	tasks[task_id]->last_job = kmalloc(sizeof(struct job), GFP_KERNEL);
+	tasks[task_id]->last_job->job_lock = NULL;
+	tasks[task_id]->last_job->previous_job = NULL;
+	tasks[task_id]->last_job->next_job = NULL;
+	tasks[task_id]->last_job->sec_guards = NULL;
+	tasks[task_id]->last_job->job_id = 0;
+
+	printk("TASK LINKED LIST INIT SUCCESFULL \n");
+
+	//Assign every sequence the start job
+	tasks[task_id]->sequences_data = kcalloc(number_of_sequences, sizeof(struct sequence_data), GFP_KERNEL);
+	for(int i = 0; i < number_of_sequences; i++)
+	{
+		seq_data_ptr = tasks[task_id]->sequences_data + i;
+		seq_data_ptr->current_sequence_job = tasks[task_id]->last_job;
+	}
+
+
+	printk("TASK INITIALIZED SUCCESFULLY task %d\n", task_id);
+	return 0;
+}
+
+
+SYSCALL_DEFINE4(RBSdata_transfer, int,  task_id, u_int32_t __user *, pre_v, u_int32_t __user *, pre_h, u_int32_t __user *, sequence_heads)
+{
+	int ret = 0;
+	int nr_bytes = tasks[task_id]->number_of_nodes * 4;
+	
+	if(tasks[task_id] == NULL)
+	{
+		return 24;
+	}
+
+
+	//Copy data from user space
+	ret = copy_from_user(tasks[task_id]->kernel_pre_v, pre_v, nr_bytes);
+	printk("TASK CPY DATA FROM USER SPACE SUCCESFULL (pre v) %d\n", ret);
+	ret = copy_from_user(tasks[task_id]->kernel_pre_h, pre_h, nr_bytes);
+	printk("TASK CPY DATA FROM USER SPACE SUCCESFULL (pre h) %d\n", ret);
+	ret = copy_from_user(tasks[task_id]->kernel_sequence_heads, sequence_heads, nr_bytes);
+	printk("TASK CPY DATA FROM USER SPACE SUCCESFULL (cesss heads) %d\n", ret);
+
+
+	return 0;
+
+}
 
 SYSCALL_DEFINE1(RBSrelease_job, int,  task_id)
 {
+	struct semaphore *sem_ptr = NULL;
+	struct job *new_job = NULL;
+	
+	
+	
 	//Allocate memory and initialize a new job structure
-	struct job *new_job = kmalloc(sizeof(struct job), GFP_KERNEL);
+	new_job = kmalloc(sizeof(struct job), GFP_KERNEL);
 	new_job->job_id = tasks[task_id]->last_job->job_id + 1;
 	new_job->nodes_in_execution = 0;
     new_job->nodes_finished = 0;
@@ -190,7 +311,7 @@ SYSCALL_DEFINE1(RBSrelease_job, int,  task_id)
 	//Initialize sec guards
     for(int i = 0; i < (tasks[task_id]->number_of_sequences -1); i++)
     {
-		struct semaphore *sem_ptr = new_job->sec_guards + i;
+		sem_ptr = new_job->sec_guards + i;
 		if(sem_ptr == NULL)
 		{
 			return 21;
@@ -205,7 +326,7 @@ SYSCALL_DEFINE1(RBSrelease_job, int,  task_id)
 	}
 	mutex_init(new_job->job_lock);	
 
-	//printk("JOB RELEASE MUTEX INITIALIZE SUCCESFULLY  %d\n", task_id);
+	printk("JOB RELEASE MUTEX INITIALIZE SUCCESFULLY  %d\n", task_id);
 
 
 	tasks[task_id]->last_job->next_job = new_job;
@@ -215,7 +336,7 @@ SYSCALL_DEFINE1(RBSrelease_job, int,  task_id)
     //post primary guards
     for(int i = 0; i < tasks[task_id]->number_of_sequences; i++)
     {
-		struct semaphore *sem_ptr = tasks[task_id]->prim_guards + i;
+		sem_ptr = tasks[task_id]->prim_guards + i;
 		if(sem_ptr == NULL)
 		{
 		return 23;
@@ -227,137 +348,43 @@ SYSCALL_DEFINE1(RBSrelease_job, int,  task_id)
 	tasks[task_id]->last_job = new_job;
 
 
-	//printk("JOB RELEASED SUCCESFULLY  task %d, job %d\n", task_id, new_job->job_id);
+	printk("JOB RELEASED SUCCESFULLY  task %d, job %d\n", task_id, new_job->job_id);
 	return 0;
 }
 
-SYSCALL_DEFINE4(RBSdata_transfer, int,  task_id, u_int32_t __user *, pre_v, u_int32_t __user *, pre_h, u_int32_t __user *, sequence_heads)
-{
-	if(tasks[task_id] == NULL)
-	{
-		return 24;
-	}
-	int ret = 0;
-	int nr_bytes = tasks[task_id]->number_of_nodes * 4;
-
-	//Copy data from user space
-	ret = copy_from_user(tasks[task_id]->kernel_pre_v, pre_v, nr_bytes);
-	//printk("TASK CPY DATA FROM USER SPACE SUCCESFULL (pre v) %d\n", ret);
-	ret = copy_from_user(tasks[task_id]->kernel_pre_h, pre_h, nr_bytes);
-	//printk("TASK CPY DATA FROM USER SPACE SUCCESFULL (pre h) %d\n", ret);
-	ret = copy_from_user(tasks[task_id]->kernel_sequence_heads, sequence_heads, nr_bytes);
-	//printk("TASK CPY DATA FROM USER SPACE SUCCESFULL (cesss heads) %d\n", ret);
-
-	/*
-	for(int i = 0; i < tasks[task_id]->number_of_nodes; i++)
-	{
-		u_int32_t * v_ptr =   tasks[task_id]->kernel_pre_v + i;
-		u_int32_t * h_ptr =   tasks[task_id]->kernel_pre_h + i;
-
-		printk("v = %d, h = %d \n", *v_ptr, *h_ptr);
-	}
-	*/
-
-
-
-	return 0;
-
-}
-
-SYSCALL_DEFINE3(RBSinitialize_task, int,  task_id, int, number_of_nodes, int, number_of_sequences)
-{
-
-	//task id must be 1 or higher
-	if(task_id < 1)
-	{
-		return 25;
-	}
-
-	//printk("TASK CHECK SUCCESFULL \n");
-
-
-
-	//Allocate memory for task data
-	tasks[task_id] = kmalloc(sizeof(struct task_data), GFP_KERNEL);
-
-	tasks[task_id]->number_of_nodes = number_of_nodes;
-	tasks[task_id]->number_of_sequences = number_of_sequences;
-
-	//printk("TASK ALLOCATION SUCCESFULL \n");
-
-	//Allocate memory for precdence bitmaps
-	tasks[task_id]->kernel_pre_v = kcalloc(number_of_nodes, sizeof(u_int32_t), GFP_KERNEL);
-	tasks[task_id]->kernel_pre_h = kcalloc(number_of_nodes, sizeof(u_int32_t), GFP_KERNEL);
-	tasks[task_id]->kernel_sequence_heads = kcalloc(number_of_nodes, sizeof(u_int32_t), GFP_KERNEL);
-
-	//printk("TASK PRE ALLOCATION SUCCESFULL \n");
-
-	//Allocate space for primary guards
-	tasks[task_id]->prim_guards = kcalloc(number_of_sequences, sizeof(struct semaphore), GFP_KERNEL);
-
-	//printk("TASK GUARD ALLOCATION SUCCESFULL \n");
-
-
-	//Initialize semaphores of the primary guards
-	for(int i = 0; i < number_of_sequences; i++)
-	{
-		struct semaphore *sem_ptr = tasks[task_id]->prim_guards + i;
-		sema_init(sem_ptr, 0);
-	}
-
-	//printk("TASK GUARD INIT SUCCESFULL \n");
-	
-	//Allocate memory for the start of the linked list for jobs and initialize it
-	tasks[task_id]->last_job = kmalloc(sizeof(struct job), GFP_KERNEL);
-	tasks[task_id]->last_job->job_lock = NULL;
-	tasks[task_id]->last_job->previous_job = NULL;
-	tasks[task_id]->last_job->next_job = NULL;
-	tasks[task_id]->last_job->sec_guards = NULL;
-	tasks[task_id]->last_job->job_id = 0;
-
-	//printk("TASK LINKED LIST INIT SUCCESFULL \n");
-
-	//Assign every sequence the start job
-	tasks[task_id]->sequences_data = kcalloc(number_of_sequences, sizeof(struct sequence_data), GFP_KERNEL);
-	for(int i = 0; i < number_of_sequences; i++)
-	{
-		struct sequence_data *seq_data_ptr = tasks[task_id]->sequences_data + i;
-		seq_data_ptr->current_sequence_job = tasks[task_id]->last_job;
-	}
-
-
-	printk("TASK INITIALIZED SUCCESFULLY task %d\n", task_id);
-	return 0;
-}
 
 SYSCALL_DEFINE2(RBSwait_job, int,  task_id, int, sequence_id)
 {
+	struct semaphore *sec_guard_ptr = NULL;
+	struct semaphore *guard_ptr = NULL;
+	struct sequence_data *seq_data = NULL;
+	struct job *new_job_ptr = NULL;
 
 	//prim guard
-	//printk("WAITING ON PRIM GUARD task %d, seq: %d, node %d\n", task_id, sequence_id, node_id);
-	struct semaphore *guard_ptr = tasks[task_id]->prim_guards + (sequence_id - 1);
+	printk("WAITING ON PRIM GUARD task %d, seq: %d\n", task_id, sequence_id);
+	guard_ptr = tasks[task_id]->prim_guards + (sequence_id - 1);
 	if(guard_ptr == NULL)
 	{
 		return 26;
 	}
-	down(guard_ptr);
-
-	//Update job ponter
-	struct sequence_data *seq_data = tasks[task_id]->sequences_data + (sequence_id - 1);
-	struct job *new_job_ptr = seq_data->current_sequence_job->next_job;
 	
-
+	down(guard_ptr);
+	
+	seq_data = tasks[task_id]->sequences_data + (sequence_id - 1);
+	new_job_ptr = seq_data->current_sequence_job->next_job;
+	
 	if(new_job_ptr == NULL)
 	{
 		return 27;
 	}
+	
 	seq_data->current_sequence_job = new_job_ptr;
 
 	//sec guard
 	if(sequence_id > 1)
 	{
-		//printk("WAITING ON SEC GUARD task %d, seq: %d, node %d\n", task_id, sequence_id, node_id);
-		struct semaphore *sec_guard_ptr = seq_data->current_sequence_job->sec_guards + (sequence_id-2);
+		printk("WAITING ON SEC GUARD task %d, seq: %d\n", task_id, sequence_id);
+		sec_guard_ptr = seq_data->current_sequence_job->sec_guards + (sequence_id-2);
 
 		if(sec_guard_ptr == NULL)
 		{
@@ -374,7 +401,6 @@ SYSCALL_DEFINE2(RBSwait_job, int,  task_id, int, sequence_id)
 	printk("WAIT WAS SUCCESFUL task %d, sequence %d ,job: %d\n", task_id, sequence_id, new_job_ptr->job_id);
 	return 0;
 }
-
 
 SYSCALL_DEFINE3(RBStry_execute, int,  task_id, int, sequence_id, int, node_id)
 {
@@ -401,7 +427,7 @@ SYSCALL_DEFINE3(RBStry_execute, int,  task_id, int, sequence_id, int, node_id)
     if((rbs_check_precedence_constraints(task_id, sequence_id, node_id)) == false)
     {
         mutex_unlock(lock_ptr);
-		//printk("EXECUTION WAS NOT SUCCESFUL (pre cons) task %d, seq: %d, node %d\n", task_id, sequence_id, node_id);
+		printk("EXECUTION WAS NOT SUCCESFUL (pre cons) task %d, seq: %d, node %d\n", task_id, sequence_id, node_id);
         return 1;
     }
     
@@ -409,7 +435,7 @@ SYSCALL_DEFINE3(RBStry_execute, int,  task_id, int, sequence_id, int, node_id)
     if((rbs_check_if_node_in_execution(task_id, sequence_id, node_id)) == true)
     {
         mutex_unlock(lock_ptr);
-		//printk("EXECUTION WAS NOT SUCCESFUL (node in ex) task %d, seq: %d, node %d\n", task_id, sequence_id, node_id);
+		printk("EXECUTION WAS NOT SUCCESFUL (node in ex) task %d, seq: %d, node %d\n", task_id, sequence_id, node_id);
         return 2;
     } 
 
@@ -417,11 +443,10 @@ SYSCALL_DEFINE3(RBStry_execute, int,  task_id, int, sequence_id, int, node_id)
 
 	mutex_unlock(lock_ptr);
 
-	//printk("EXECUTION WAS SUCCESFUL task %d, seq: %d, node %d, job %d\n", task_id, sequence_id, node_id, current_sequence_job_ptr->job_id);
+	printk("EXECUTION WAS SUCCESFUL task %d, seq: %d, node %d, job %d\n", task_id, sequence_id, node_id, current_sequence_job_ptr->job_id);
 
 	return 0;
 }
-
 
 SYSCALL_DEFINE3(RBSnode_executed, int,  task_id, int, sequence_id, int, node_id)
 {
@@ -452,30 +477,10 @@ SYSCALL_DEFINE3(RBSnode_executed, int,  task_id, int, sequence_id, int, node_id)
 	}
 	
 
-	//printk("EXECUTION MARKING  WAS SUCCESFUL seq: %d, node %d\n", sequence_id, node_id);
+	printk("EXECUTION MARKING  WAS SUCCESFUL seq: %d, node %d\n", sequence_id, node_id);
 
 	return 0;
 }
-
-
-SYSCALL_DEFINE0(RBSinitialize_rbs)
-{
-	for(int i = 0; i < 100; i++)
-	{
-		tasks[i] = NULL;
-	}
-
-	return 0;
-}
-
-SYSCALL_DEFINE1(RBSdelete_task, int, task_id)
-{
-
-	return 0;
-}
-
-
-
 ////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////// END OF AREA WITH NEW RBS SYSTEM CALLS /////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////
