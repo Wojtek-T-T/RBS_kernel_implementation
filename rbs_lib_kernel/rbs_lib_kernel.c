@@ -1,11 +1,11 @@
-#include "rbs_lib.h"
+#include "rbs_lib_kernel.h"
 
 struct timespec time_reference;
-struct log_event_data *log_event_buffers_ptrs[400];
-u_int32_t buff_indexes[400];
+struct log_event_data *log_event_buffers_ptrs[1600];
+u_int32_t buff_indexes[1600];
 
 
-void InitializeSequence(struct task_data *taskDATA, int sequenceID, pthread_t *thread, pthread_attr_t attr, void *(*func)())
+void RBS_InitializeSequence(struct task_data *taskDATA, int sequenceID, pthread_t *thread, pthread_attr_t attr, void *(*func)())
 {
 	//Allocate memory for sequence data
 	struct sequence_data *sequenceDATA = malloc(sizeof(struct sequence_data));
@@ -21,14 +21,14 @@ void InitializeSequence(struct task_data *taskDATA, int sequenceID, pthread_t *t
  
 }
 
-void initialize_rbs()
+void RBS_InitializeRBS()
 {
     clock_gettime(CLOCK_REALTIME, &time_reference);
     int result = syscall(INIT);
 
 }
 
-int InitializeTask(struct task_data *taskDATA)
+int RBS_InitializeTask(struct task_data *taskDATA)
 {
     int result = 0;
 
@@ -50,7 +50,7 @@ int InitializeTask(struct task_data *taskDATA)
 	#ifdef LOG_DATA
         for(int buff_nr = 0; buff_nr <= taskDATA->number_of_sequences; buff_nr ++)
         {
-            int index = (taskDATA->task_id - 1) * 20 + buff_nr;
+            int index = (taskDATA->task_id - 1) * 40 + buff_nr;
             if(buff_nr == 0)
             {
                 log_event_buffers_ptrs[index] = calloc(10, sizeof(struct log_event_data));
@@ -66,14 +66,14 @@ int InitializeTask(struct task_data *taskDATA)
     result = syscall(INIT_TASK, taskDATA->task_id, taskDATA->number_of_nodes, taskDATA->number_of_sequences);
     result = syscall(TRANSFER, taskDATA->task_id, taskDATA->pre_cons_v, taskDATA->pre_cons_h, taskDATA->sequence_heads);
 
-    printf("task %d initialized\n", taskDATA->task_id);
+    //printf("task %d initialized\n", taskDATA->task_id);
 
     return 0;
 }
 
 struct log_event_data *log_event_start(int task, int sequence, int node, int job, int event)
 {
-    int index = (task - 1) * 20 + sequence;
+    int index = (task - 1) * 40 + sequence;
     int local_buff_index = buff_indexes[index];
 
     struct log_event_data *ptr = log_event_buffers_ptrs[index] + local_buff_index;
@@ -98,7 +98,7 @@ void log_event_end(struct log_event_data *ptr)
 
 void log_first_activation(int task, struct timespec activation)
 {
-    int index = (task - 1) * 20;
+    int index = (task - 1) * 40;
     int local_buff_index = buff_indexes[index];
 
     struct log_event_data *ptr = log_event_buffers_ptrs[index] + local_buff_index;
@@ -122,16 +122,18 @@ void set_cpu(int cpu_num)
    sched_setaffinity(0, sizeof(cpu_set_t), &cpuset);
 }
 
-void WaitNextJob(struct sequence_data *sequenceDATA)
-{
+void RBS_Wait(struct sequence_data *sequenceDATA)
+{    
 	//Wait till a new job is released
     int ret = syscall(WAIT, sequenceDATA->task->task_id, sequenceDATA->sequence_id);
 
     sequenceDATA->current_job_id = sequenceDATA->current_job_id + 1;
+    
+    return 0;
 
 }
 
-void ReleaseNewJob(struct task_data *taskDATA)
+void RBS_Release(struct task_data *taskDATA)
 {
 
     //Increase the jobs counter
@@ -148,7 +150,7 @@ void FinishJob(struct sequence_data *sequenceDATA)
 
 
 
-int TryExecuteNode(struct sequence_data *sequenceDATA, int node)
+int RBS_Execute(struct sequence_data *sequenceDATA, int node)
 {
     
     int ret = syscall(EXECUTE, sequenceDATA->task->task_id, sequenceDATA->sequence_id, node);
@@ -165,15 +167,14 @@ int TryExecuteNode(struct sequence_data *sequenceDATA, int node)
     
     //Execute Node function
     sequenceDATA->task->func[(node-1)]();
-
-
+    
     //Log event
     #ifdef LOG_DATA
         log_event_end(log_ptr);
     #endif
 
-    ret = syscall(EXECUTED, sequenceDATA->task->task_id, sequenceDATA->sequence_id, node);
 
+    ret = syscall(EXECUTED, sequenceDATA->task->task_id, sequenceDATA->sequence_id, node);
     
     
     return 0;
@@ -200,7 +201,7 @@ void print_log_data_json(struct task_data **taskDATA_start, int num_of_tasks)
 
         for(int i = 0 ; i <= taskDATA->number_of_sequences; i ++)
         {
-            int index = (taskDATA->task_id - 1) * 20 + i;
+            int index = (taskDATA->task_id - 1) * 40 + i;
 
             for(int x = 0; x < buff_indexes[index]; x++)
             {
