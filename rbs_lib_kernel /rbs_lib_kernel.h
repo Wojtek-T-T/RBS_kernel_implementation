@@ -16,6 +16,7 @@
 #include <syslog.h>
 #include <stddef.h>
 #include <sys/syscall.h>
+#include <stdint.h>
 
 #define LOG_DATA
 #define AUTO_SIGNAL
@@ -33,11 +34,11 @@
 //SYS CALLS
 #define EXECUTE 456
 #define RELEASE 454
-#define INIT_TASK 453
-#define INIT 452
+#define INIT_TASK 452
+#define INIT 451
 #define WAIT 455
 #define EXECUTED 457
-#define TRANSFER 459
+#define TRANSFER 453
 #define DELETE 458
 
 //job data structures
@@ -48,10 +49,10 @@ struct job_token
 	struct job_token *previous_job;
 	
 	//Bitmap containg information which nodes of the job are being executed
-    u_int32_t nodes_in_execution;
+    uint64_t nodes_in_execution;
 
 	//Bitmap containing information which nodes of the job are finished
-    u_int32_t nodes_finished;
+    uint64_t nodes_finished;
 
 	//Lock that locks the job token
     pthread_mutex_t job_lock;
@@ -95,9 +96,9 @@ struct task_data
 	int number_of_nodes;
 	int number_of_sequences;
 	int job_counter;
-	u_int32_t *pre_cons_h;
-	u_int32_t *pre_cons_v;
-	u_int32_t *sequence_heads;
+	uint64_t *pre_cons_h;
+	uint64_t *pre_cons_v;
+	uint64_t *sequence_heads;
 	sem_t *sequences_guards;
 	struct job_token *last_added_job;
 	pthread_attr_t attr;
@@ -135,7 +136,7 @@ struct log_event_data
 *			  void *(*func)() = pointer to the sequence function		
 * RETURN TYPE: NONE
 */
-void InitializeSequence(struct task_data *taskDATA, int sequenceID, pthread_t *thread, pthread_attr_t attr, void *(*func)());
+void RBS_InitializeSequence(struct task_data *taskDATA, int sequenceID, pthread_t *thread, pthread_attr_t attr, void *(*func)());
 
 
 
@@ -147,7 +148,7 @@ void InitializeSequence(struct task_data *taskDATA, int sequenceID, pthread_t *t
 * PARAMETERS: NONE
 * RETURN TYPE: NONE
 */
-void initialize_rbs();
+void RBS_InitializeRBS();
 
 
 /*
@@ -161,7 +162,7 @@ void initialize_rbs();
 					0 = initialization was succesfull
 					1 = Initialization failed due to priority of task ou of bounds
 */
-int InitializeTask(struct task_data *taskDATA);
+int RBS_InitializeTask(struct task_data *taskDATA);
 
 
 
@@ -219,7 +220,7 @@ void set_cpu(int cpu_num);
 
 * RETURN TYPE: NONE
 */
-void WaitNextJob(struct sequence_data *sequenceDATA);
+void RBS_Wait(struct sequence_data *sequenceDATA);
 
 
 /*
@@ -231,7 +232,7 @@ void WaitNextJob(struct sequence_data *sequenceDATA);
 
 * RETURN TYPE: NONE
 */
-void ReleaseNewJob(struct task_data *taskDATA);
+void RBS_Release(struct task_data *taskDATA);
 
 void FinishJob(struct sequence_data *sequenceDATA);
 
@@ -252,7 +253,7 @@ void FinishJob(struct sequence_data *sequenceDATA);
 					2 = Node could not be executed because it already has been executed or is being executed
 						as a part of other sequence
 */
-int TryExecuteNode(struct sequence_data *sequenceDATA, int node);
+int RBS_Execute(struct sequence_data *sequenceDATA, int node);
 
 
 void TerminateSequence(struct sequence_data *sequenceDATA, int node);
