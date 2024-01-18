@@ -220,7 +220,7 @@ void set_cpu(int cpu_num);
 
 * RETURN TYPE: NONE
 */
-int RBS_Wait(struct sequence_data *sequenceDATA);
+void RBS_Wait(struct sequence_data *sequenceDATA);
 
 
 /*
