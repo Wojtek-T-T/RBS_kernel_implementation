@@ -67,11 +67,8 @@ set_cpu(0);
  struct sequence_data *seq_data = (struct sequence_data*) arguments;
  while(true)
   {
-   int stop = RBS_Wait(seq_data);
-   if(stop == 1)
-   {
-      return 0;
-   }
+   RBS_Wait(seq_data);
+
 
    if(RBS_Execute(seq_data,1) != 0)
    {
@@ -112,11 +109,7 @@ set_cpu(1);
  struct sequence_data *seq_data = (struct sequence_data*) arguments;
  while(true)
   {
-   int stop = RBS_Wait(seq_data);
-   if(stop == 1)
-   {
-      return 0;
-   }
+   RBS_Wait(seq_data);
 
    if(RBS_Execute(seq_data,30) != 0)
    {
@@ -151,11 +144,7 @@ set_cpu(2);
  struct sequence_data *seq_data = (struct sequence_data*) arguments;
  while(true)
   {
-   int stop = RBS_Wait(seq_data);
-   if(stop == 1)
-   {
-      return 0;
-   }
+   RBS_Wait(seq_data);
 
    if(RBS_Execute(seq_data,33) != 0)
    {
@@ -184,11 +173,8 @@ set_cpu(3);
  struct sequence_data *seq_data = (struct sequence_data*) arguments;
  while(true)
   {
-   int stop = RBS_Wait(seq_data);
-   if(stop == 1)
-   {
-      return 0;
-   }
+   RBS_Wait(seq_data);
+
 
    if(RBS_Execute(seq_data,32) != 0)
    {
@@ -217,11 +203,8 @@ set_cpu(0);
  struct sequence_data *seq_data = (struct sequence_data*) arguments;
  while(true)
   {
-   int stop = RBS_Wait(seq_data);
-   if(stop == 1)
-   {
-      return 0;
-   }
+    RBS_Wait(seq_data);
+
 
    if(RBS_Execute(seq_data,22) != 0)
    {
@@ -256,11 +239,8 @@ set_cpu(2);
  struct sequence_data *seq_data = (struct sequence_data*) arguments;
  while(true)
   {
-   int stop = RBS_Wait(seq_data);
-   if(stop == 1)
-   {
-      return 0;
-   }
+   RBS_Wait(seq_data);
+
 
    if(RBS_Execute(seq_data,28) != 0)
    {
@@ -289,11 +269,7 @@ set_cpu(3);
  struct sequence_data *seq_data = (struct sequence_data*) arguments;
  while(true)
   {
-   int stop = RBS_Wait(seq_data);
-   if(stop == 1)
-   {
-      return 0;
-   }
+   RBS_Wait(seq_data);
 
    if(RBS_Execute(seq_data,27) != 0)
    {
@@ -322,11 +298,8 @@ set_cpu(2);
  struct sequence_data *seq_data = (struct sequence_data*) arguments;
  while(true)
   {
-   int stop = RBS_Wait(seq_data);
-   if(stop == 1)
-   {
-      return 0;
-   }
+  RBS_Wait(seq_data);
+
 
    if(RBS_Execute(seq_data,26) != 0)
    {
@@ -355,11 +328,8 @@ set_cpu(0);
  struct sequence_data *seq_data = (struct sequence_data*) arguments;
  while(true)
   {
-   int stop = RBS_Wait(seq_data);
-   if(stop == 1)
-   {
-      return 0;
-   }
+   RBS_Wait(seq_data);
+
 
    if(RBS_Execute(seq_data,25) != 0)
    {
@@ -388,11 +358,8 @@ set_cpu(1);
  struct sequence_data *seq_data = (struct sequence_data*) arguments;
  while(true)
   {
-   int stop = RBS_Wait(seq_data);
-   if(stop == 1)
-   {
-      return 0;
-   }
+   RBS_Wait(seq_data);
+
 
    if(RBS_Execute(seq_data,24) != 0)
    {
@@ -421,11 +388,8 @@ set_cpu(2);
  struct sequence_data *seq_data = (struct sequence_data*) arguments;
  while(true)
   {
-   int stop = RBS_Wait(seq_data);
-   if(stop == 1)
-   {
-      return 0;
-   }
+   RBS_Wait(seq_data);
+
 
    if(RBS_Execute(seq_data,16) != 0)
    {
@@ -460,11 +424,8 @@ set_cpu(2);
  struct sequence_data *seq_data = (struct sequence_data*) arguments;
  while(true)
   {
-   int stop = RBS_Wait(seq_data);
-   if(stop == 1)
-   {
-      return 0;
-   }
+   RBS_Wait(seq_data);
+
 
    if(RBS_Execute(seq_data,20) != 0)
    {
@@ -493,11 +454,8 @@ set_cpu(3);
  struct sequence_data *seq_data = (struct sequence_data*) arguments;
  while(true)
   {
-   int stop = RBS_Wait(seq_data);
-   if(stop == 1)
-   {
-      return 0;
-   }
+   RBS_Wait(seq_data);
+
 
    if(RBS_Execute(seq_data,19) != 0)
    {
@@ -526,11 +484,8 @@ set_cpu(3);
  struct sequence_data *seq_data = (struct sequence_data*) arguments;
  while(true)
   {
-   int stop = RBS_Wait(seq_data);
-   if(stop == 1)
-   {
-      return 0;
-   }
+   RBS_Wait(seq_data);
+
 
    if(RBS_Execute(seq_data,18) != 0)
    {
@@ -559,11 +514,8 @@ set_cpu(1);
  struct sequence_data *seq_data = (struct sequence_data*) arguments;
  while(true)
   {
-   int stop = RBS_Wait(seq_data);
-   if(stop == 1)
-   {
-      return 0;
-   }
+   RBS_Wait(seq_data);
+
 
    if(RBS_Execute(seq_data,10) != 0)
    {
@@ -598,11 +550,8 @@ set_cpu(1);
  struct sequence_data *seq_data = (struct sequence_data*) arguments;
  while(true)
   {
-   int stop = RBS_Wait(seq_data);
-   if(stop == 1)
-   {
-      return 0;
-   }
+   RBS_Wait(seq_data);
+
 
    if(RBS_Execute(seq_data,14) != 0)
    {
@@ -631,11 +580,8 @@ set_cpu(1);
  struct sequence_data *seq_data = (struct sequence_data*) arguments;
  while(true)
   {
-   int stop = RBS_Wait(seq_data);
-   if(stop == 1)
-   {
-      return 0;
-   }
+   RBS_Wait(seq_data);
+
 
    if(RBS_Execute(seq_data,13) != 0)
    {
