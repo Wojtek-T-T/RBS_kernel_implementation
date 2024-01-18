@@ -122,7 +122,7 @@ void set_cpu(int cpu_num)
    sched_setaffinity(0, sizeof(cpu_set_t), &cpuset);
 }
 
-int RBS_Wait(struct sequence_data *sequenceDATA)
+void RBS_Wait(struct sequence_data *sequenceDATA)
 {
     if(sequenceDATA->current_job_id == 200)
     {
