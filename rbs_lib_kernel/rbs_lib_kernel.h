@@ -136,7 +136,7 @@ struct log_event_data
 *			  void *(*func)() = pointer to the sequence function		
 * RETURN TYPE: NONE
 */
-void RBS_InitializeSequence(struct task_data *taskDATA, int sequenceID, pthread_t *thread, pthread_attr_t attr, void *(*func)());
+void RBS_InitializeSequence(struct task_data *taskDATA, int sequenceID, pthread_t *thread, void *(*func)());
 
 
 
@@ -259,7 +259,7 @@ int RBS_Execute(struct sequence_data *sequenceDATA, int node);
 void TerminateSequence(struct sequence_data *sequenceDATA, int node);
 
 
-void print_log_data_json(struct task_data **taskDATA_start, int num_of_tasks);
+void ExportLogFile(struct task_data **taskDATA_start, int num_of_tasks);
 
 
 #endif
