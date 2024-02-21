@@ -5,7 +5,7 @@ struct log_event_data *log_event_buffers_ptrs[1600];
 u_int32_t buff_indexes[1600];
 
 
-void RBS_InitializeSequence(struct task_data *taskDATA, int sequenceID, pthread_t *thread, pthread_attr_t attr, void *(*func)())
+void RBS_InitializeSequence(struct task_data *taskDATA, int sequenceID, pthread_t *thread, void *(*func)())
 {
 	//Allocate memory for sequence data
 	struct sequence_data *sequenceDATA = malloc(sizeof(struct sequence_data));
